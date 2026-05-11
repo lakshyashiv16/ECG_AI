@@ -1,0 +1,14 @@
+artifact_uri: /Users/arnavnadar/vscode/AI-ECG/ecg_ai/mlruns/352575137286815286/e2c884dc4e2747e39c027df46bdfe347/artifacts
+end_time: 1778487006131
+entry_point_name: ''
+experiment_id: '352575137286815286'
+lifecycle_stage: active
+run_id: e2c884dc4e2747e39c027df46bdfe347
+run_name: capable-auk-759
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1778487004171
+status: 4
+tags: []
+user_id: arnavnadar
