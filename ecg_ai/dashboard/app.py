@@ -444,6 +444,49 @@ def _page_card(children, **kwargs) -> dbc.Card:
     )
 
 
+def _guide_card(steps: list, what: str, results: list) -> dbc.Container:
+    """Bottom-of-page guide: How to use / What it does / Reading the results."""
+    def _col(icon, heading, body):
+        return dbc.Col([
+            html.Div([
+                html.I(className=f"bi {icon} me-2",
+                       style={"color": CLR["accent"], "fontSize": "1.1rem"}),
+                html.Span(heading, style={"fontWeight": 700, "fontSize": "0.85rem",
+                                          "textTransform": "uppercase", "letterSpacing": "0.05em",
+                                          "color": CLR["text"]}),
+            ], className="mb-2 d-flex align-items-center"),
+            body,
+        ], md=4)
+
+    def _bullets(items):
+        return html.Ul([
+            html.Li(item, style={"fontSize": "0.83rem", "color": CLR["muted"],
+                                  "marginBottom": "4px"})
+            for item in items
+        ], style={"paddingLeft": "1.1rem", "margin": 0})
+
+    return dbc.Container([
+        dbc.Card(
+            dbc.CardBody([
+                html.Div([
+                    html.I(className="bi bi-info-circle me-2",
+                           style={"color": CLR["accent"]}),
+                    html.Span("Page Guide", style={"fontWeight": 700, "fontSize": "0.9rem"}),
+                ], className="mb-3 d-flex align-items-center"),
+                dbc.Row([
+                    _col("bi-list-ol", "How to use", _bullets(steps)),
+                    _col("bi-cpu",     "What it does", html.P(what, style={"fontSize": "0.83rem",
+                                                                            "color": CLR["muted"], "margin": 0})),
+                    _col("bi-graph-up", "Reading the results", _bullets(results)),
+                ]),
+            ]),
+            style={"border": f"1px solid #e0f2fe", "borderRadius": "12px",
+                   "background": "#f0f9ff", "boxShadow": "none"},
+            className="mb-4",
+        ),
+    ], fluid=True, style={"padding": "0 2rem"})
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # Page 1 — Data Explorer
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -465,15 +508,19 @@ def _explorer_layout() -> html.Div:
                         ),
                     ], md=3),
                     dbc.Col([
-                        html.Label("Upload custom CSV", className="fw-600 small text-uppercase text-muted mb-1"),
+                        html.Label("Upload CSV or PDF", className="fw-600 small text-uppercase text-muted mb-1"),
                         dcc.Upload(
                             id="explorer-upload",
+                            accept=".csv,.pdf",
                             children=html.Div([html.I(className="bi bi-upload me-2"),
-                                               "Drag & Drop or ", html.A("Select CSV")]),
+                                               "Drag & Drop or ", html.A("Select file"),
+                                               html.Span(" (.csv, .pdf)", style={"fontSize": "0.75rem",
+                                                                                  "color": CLR["muted"]})]),
                             style={"border": "2px dashed #cbd5e1", "borderRadius": "8px",
                                    "padding": "0.5rem 1rem", "textAlign": "center",
                                    "cursor": "pointer", "color": CLR["muted"]},
                         ),
+                        html.Div(id="explorer-filename", className="mt-2"),
                     ], md=4),
                     dbc.Col([
                         html.Label("Navigate samples", className="fw-600 small text-uppercase text-muted mb-1"),
@@ -499,6 +546,24 @@ def _explorer_layout() -> html.Div:
                 dbc.Col(_page_card([dcc.Graph(id="explorer-lead-corr")]),  md=6),
             ]),
         ], fluid=True, style={"padding": "1.5rem 2rem"}),
+        _guide_card(
+            steps=[
+                "Choose MIT-BIH or PTB-XL from the Dataset dropdown.",
+                "Or drag & drop your own CSV (columns: lead_name, sample_idx, value).",
+                "Use the ← → arrows to browse individual ECG beats.",
+            ],
+            what=(
+                "Loads ECG recordings from the selected dataset and displays the raw "
+                "waveform for one beat at a time, along with a class distribution chart "
+                "and a lead-correlation heatmap across the full dataset."
+            ),
+            results=[
+                "ECG plot — voltage (mV) on Y-axis, sample index on X-axis.",
+                "Class badge — the labelled rhythm type for the current beat (e.g. N = Normal, V = Ventricular).",
+                "Class distribution — how many beats belong to each rhythm category.",
+                "Lead correlation — how similar different ECG leads are to each other (1 = identical).",
+            ],
+        ),
         _footer(),
     ], style={"fontFamily": FONT, "background": CLR["light_bg"], "minHeight": "100vh"})
 
@@ -514,22 +579,23 @@ def _inference_layout() -> html.Div:
             _page_card([
                 dbc.Row([
                     dbc.Col([
-                        html.Label("Upload ECG (CSV or WFDB)",
+                        html.Label("Upload ECG (CSV or PDF)",
                                    className="fw-600 small text-uppercase text-muted mb-1"),
                         dcc.Upload(
                             id="inference-upload",
+                            accept=".csv,.pdf",
                             children=html.Div([
                                 html.I(className="bi bi-file-earmark-medical me-2",
                                        style={"fontSize": "1.2rem"}),
                                 "Drag & Drop or ", html.A("Select file"),
+                                html.Span(" (.csv, .pdf)", style={"fontSize": "0.75rem",
+                                                                   "color": CLR["muted"]}),
                             ]),
                             style={"border": "2px dashed #cbd5e1", "borderRadius": "8px",
                                    "padding": "0.75rem 1rem", "textAlign": "center",
                                    "cursor": "pointer", "color": CLR["muted"]},
                         ),
-                        html.Div(id="inference-filename",
-                                 className="mt-1 small",
-                                 style={"color": CLR["success"]}),
+                        html.Div(id="inference-filename", className="mt-2"),
                     ], md=5),
                     dbc.Col([
                         html.Label("Model checkpoint",
@@ -558,6 +624,26 @@ def _inference_layout() -> html.Div:
                 ]),
             ]),
         ], fluid=True, style={"padding": "1.5rem 2rem"}),
+        _guide_card(
+            steps=[
+                "Upload an ECG file (CSV or WFDB format) using the upload box.",
+                "Select a trained model checkpoint from the dropdown.",
+                "Click Run Inference to get a prediction.",
+            ],
+            what=(
+                "Your ECG is preprocessed (bandpass filtered, baseline corrected, "
+                "resampled, and normalised), then passed through a trained deep-learning "
+                "model. A Grad-CAM heatmap is computed to show which part of the signal "
+                "drove the prediction."
+            ),
+            results=[
+                "Prediction label — the model's top class (e.g. HYP = Hypertrophy, NORM = Normal).",
+                "Confidence % — how certain the model is; low confidence means the classes are close.",
+                "ECG plot — your signal in cyan; red dashed overlay = Grad-CAM (where the model focused).",
+                "Class Confidence bars — softmax score for every class; taller = more likely.",
+                "NORM=Normal · MI=Heart Attack · STTC=ST/T change · CD=Conduction issue · HYP=Hypertrophy",
+            ],
+        ),
         _footer(),
     ], style={"fontFamily": FONT, "background": CLR["light_bg"], "minHeight": "100vh"})
 
@@ -585,6 +671,23 @@ def _tracker_layout() -> html.Div:
             _page_card([html.Div(id="tracker-table-container")]),
             _page_card([dcc.Graph(id="tracker-metric-plot")]),
         ], fluid=True, style={"padding": "1.5rem 2rem"}),
+        _guide_card(
+            steps=[
+                "Click Refresh Runs to load all recorded training experiments.",
+                "Rows in the table are sorted by validation accuracy (highest first).",
+                "Click any column header to re-sort.",
+            ],
+            what=(
+                "Reads every training run logged to MLflow and displays their "
+                "hyperparameters and final metrics side-by-side, plus a chart "
+                "comparing validation accuracy across all runs."
+            ),
+            results=[
+                "Table — one row per training run: model type, dataset, epochs, accuracy, loss.",
+                "Val Accuracy chart — higher bars = better generalisation on unseen data.",
+                "Run ID — unique identifier you can use to reload that specific model checkpoint.",
+            ],
+        ),
         _footer(),
     ], style={"fontFamily": FONT, "background": CLR["light_bg"], "minHeight": "100vh"})
 
@@ -626,6 +729,23 @@ def _statistics_layout() -> html.Div:
                 ]),
             ]),
         ], fluid=True, style={"padding": "1.5rem 2rem"}),
+        _guide_card(
+            steps=[
+                "Select MIT-BIH or PTB-XL from the Dataset dropdown.",
+                "Click Load Statistics — this may take a few seconds on large datasets.",
+                "Scroll down to explore the charts.",
+            ],
+            what=(
+                "Computes summary statistics across the full dataset: class balance, "
+                "per-lead signal amplitude, and inter-lead correlation. "
+                "Helps you understand the data your models are trained on."
+            ),
+            results=[
+                "Summary cards — total beats, number of leads, sampling rate, and class count.",
+                "Class distribution pie — how imbalanced the dataset is (e.g. MIT-BIH is ~83% Normal).",
+                "Lead heatmap — correlation between leads; dark = unrelated, bright = strongly correlated.",
+            ],
+        ),
         _footer(),
     ], style={"fontFamily": FONT, "background": CLR["light_bg"], "minHeight": "100vh"})
 
@@ -727,10 +847,58 @@ def navigate_samples(prev_clicks, next_clicks, current_idx, store):
     Output("explorer-lead-corr", "figure"),
     Input("explorer-idx", "value"),
     Input("explorer-dataset", "value"),
+    Input("explorer-upload", "contents"),
+    State("explorer-upload", "filename"),
     prevent_initial_call=False,
 )
-def update_ecg_plot(idx_str, dataset_name):
+def update_ecg_plot(idx_str, dataset_name, upload_contents, upload_filename):
+    import base64, tempfile
+    from data_loader import load_custom
+    from pdf_digitizer import load_pdf_ecg
+
     empty = go.Figure(layout=dict(template="plotly_white", font=dict(family=FONT)))
+
+    # If a file has been uploaded, display it instead of the dataset sample
+    if upload_contents:
+        try:
+            _, content_string = upload_contents.split(",")
+            raw_bytes = base64.b64decode(content_string)
+            suffix = Path(upload_filename).suffix.lower() if upload_filename else ".csv"
+            with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+                tmp.write(raw_bytes)
+                tmp_path = tmp.name
+            try:
+                ds = load_pdf_ecg(tmp_path) if suffix == ".pdf" else load_custom(tmp_path)
+            finally:
+                os.unlink(tmp_path)
+
+            sample = ds.X[0]
+            n_leads = sample.shape[0]
+            lead_names = LEAD_NAMES_12[:n_leads] if n_leads == 12 else LEAD_NAMES_1[:n_leads]
+            ecg_fig = _ecg_figure(sample, lead_names, title=f"Uploaded — {upload_filename}")
+            badge = dbc.Badge(
+                [html.I(className="bi bi-file-earmark-check me-1"),
+                 "PDF ECG" if (upload_filename or "").lower().endswith(".pdf") else "Custom CSV"],
+                color="info", pill=True,
+                style={"fontSize": "0.85rem", "padding": "0.4rem 0.8rem"},
+            )
+            if n_leads == 1:
+                t = np.arange(sample.shape[1])
+                corr_fig = go.Figure(go.Scatter(x=t.tolist(), y=sample[0].tolist(),
+                                                mode="lines", line=dict(color=CLR["blue"], width=1.5)))
+                corr_fig.update_layout(title="Signal Detail", template="plotly_white",
+                                       font=dict(family=FONT), margin=dict(l=40, r=20, t=40, b=40))
+            else:
+                corr = np.corrcoef(sample)
+                corr_fig = go.Figure(go.Heatmap(z=corr.tolist(), x=lead_names, y=lead_names,
+                                                 colorscale="RdBu", zmid=0))
+                corr_fig.update_layout(title="Lead Correlation", template="plotly_white",
+                                       font=dict(family=FONT), margin=dict(l=60, r=20, t=40, b=60))
+            return ecg_fig, badge, corr_fig
+        except Exception as exc:
+            err = dbc.Alert(f"Could not load file: {exc}", color="danger")
+            return empty, err, empty
+
     result = _load_sample_dataset(dataset_name)
     if result is None:
         return empty, dbc.Alert(f"{dataset_name.upper()} not downloaded yet.", color="warning"), empty
@@ -783,13 +951,77 @@ def refresh_model_list(pathname):
 
 @app.callback(
     Output("inference-filename", "children"),
+    Output("inference-upload", "style"),
     Input("inference-upload", "filename"),
     prevent_initial_call=True,
 )
 def show_upload_filename(filename):
+    default_style = {
+        "border": "2px dashed #cbd5e1", "borderRadius": "8px",
+        "padding": "0.75rem 1rem", "textAlign": "center",
+        "cursor": "pointer", "color": CLR["muted"],
+    }
     if not filename:
-        return ""
-    return [html.I(className="bi bi-check-circle-fill me-1"), html.Strong(filename)]
+        return "", default_style
+    uploaded_style = {
+        **default_style,
+        "border": f"2px dashed {CLR['success']}",
+        "backgroundColor": "#f0fdf4",
+        "color": CLR["success"],
+    }
+    banner = html.Div(
+        [
+            html.I(className="bi bi-check-circle-fill me-2",
+                   style={"fontSize": "1.1rem"}),
+            html.Span(filename, style={"fontWeight": "600", "fontSize": "0.95rem"}),
+            html.Span(" ready to run",
+                      style={"color": CLR["muted"], "fontSize": "0.85rem", "marginLeft": "6px"}),
+        ],
+        style={
+            "display": "flex", "alignItems": "center",
+            "backgroundColor": "#dcfce7", "border": f"1px solid {CLR['success']}",
+            "borderRadius": "8px", "padding": "0.6rem 1rem",
+            "color": CLR["success"],
+        },
+    )
+    return banner, uploaded_style
+
+
+@app.callback(
+    Output("explorer-filename", "children"),
+    Output("explorer-upload", "style"),
+    Input("explorer-upload", "filename"),
+    prevent_initial_call=True,
+)
+def show_explorer_filename(filename):
+    default_style = {
+        "border": "2px dashed #cbd5e1", "borderRadius": "8px",
+        "padding": "0.5rem 1rem", "textAlign": "center",
+        "cursor": "pointer", "color": CLR["muted"],
+    }
+    if not filename:
+        return "", default_style
+    uploaded_style = {
+        **default_style,
+        "border": f"2px dashed {CLR['success']}",
+        "backgroundColor": "#f0fdf4",
+        "color": CLR["success"],
+    }
+    banner = html.Div(
+        [
+            html.I(className="bi bi-check-circle-fill me-2",
+                   style={"fontSize": "1.1rem"}),
+            html.Span(filename, style={"fontWeight": "600", "fontSize": "0.95rem"}),
+            html.Span(" loaded", style={"color": CLR["muted"], "fontSize": "0.85rem", "marginLeft": "6px"}),
+        ],
+        style={
+            "display": "flex", "alignItems": "center",
+            "backgroundColor": "#dcfce7", "border": f"1px solid {CLR['success']}",
+            "borderRadius": "8px", "padding": "0.6rem 1rem",
+            "color": CLR["success"],
+        },
+    )
+    return banner, uploaded_style
 
 
 @app.callback(
@@ -815,24 +1047,66 @@ def run_inference(n_clicks, contents, filename, model_path):
 
     try:
         import tempfile
+        import zipfile
+        import json
         import tensorflow as tf
         from data_loader import load_custom
+        from pdf_digitizer import load_pdf_ecg
         from preprocessor import Preprocessor
         from scipy.signal import resample as sp_resample
 
+        def _load_model_compat(path):
+            """Load a .keras checkpoint, stripping renorm keys Keras 3 no longer accepts."""
+            _RENORM = {"renorm", "renorm_clipping", "renorm_momentum"}
+
+            def _strip(obj):
+                if isinstance(obj, dict):
+                    return {k: _strip(v) for k, v in obj.items() if k not in _RENORM}
+                if isinstance(obj, list):
+                    return [_strip(i) for i in obj]
+                return obj
+
+            path = Path(path)
+            if path.suffix != ".keras":
+                return tf.keras.models.load_model(path)
+
+            with zipfile.ZipFile(path, "r") as zin:
+                names = zin.namelist()
+                if "config.json" not in names:
+                    return tf.keras.models.load_model(path)
+                cfg_raw = zin.read("config.json")
+                cfg = _strip(json.loads(cfg_raw))
+                if cfg == json.loads(cfg_raw):
+                    return tf.keras.models.load_model(path)
+                buf = io.BytesIO()
+                with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zout:
+                    for name in names:
+                        data = zin.read(name)
+                        if name == "config.json":
+                            data = json.dumps(cfg).encode()
+                        zout.writestr(name, data)
+            buf.seek(0)
+            with tempfile.NamedTemporaryFile(suffix=".keras", delete=False) as tmp:
+                tmp.write(buf.read())
+                tmp_keras = tmp.name
+            try:
+                return tf.keras.models.load_model(tmp_keras)
+            finally:
+                os.unlink(tmp_keras)
+
         _, content_string = contents.split(",")
         raw_bytes = base64.b64decode(content_string)
-        suffix = Path(filename).suffix if filename else ".csv"
+        suffix = Path(filename).suffix.lower() if filename else ".csv"
         with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
             tmp.write(raw_bytes)
             tmp_path = tmp.name
         try:
-            ds = load_custom(tmp_path)
+            ds = load_pdf_ecg(tmp_path) if suffix == ".pdf" else load_custom(tmp_path)
         finally:
             os.unlink(tmp_path)
 
         sample = ds.X[0]
-        model  = tf.keras.models.load_model(model_path)
+        model  = _load_model_compat(model_path)
         n_leads_model = model.input_shape[1]
         n_time_model  = model.input_shape[2]
 
@@ -1057,4 +1331,6 @@ def load_statistics(n_clicks, dataset_name):
 if __name__ == "__main__":
     import logging
     logging.basicConfig(level=logging.INFO)
-    app.run(debug=True, host="0.0.0.0", port=8050)
+    port = int(os.environ.get("PORT", 7860))
+    debug = os.environ.get("DEBUG", "false").lower() == "true"
+    app.run(debug=debug, host="0.0.0.0", port=port)
